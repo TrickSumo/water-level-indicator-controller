@@ -6,11 +6,9 @@
                        2. Arduino JSON => https://github.com/bblanchon/ArduinoJson/tree/5.x 
                        
 
-    Tutorials:-
-                       
-                                                                              => https://tricksumo.com/use-firebase-with-mit-app-inventor/
-                     Connect NodeMCU to firebase                              => https://youtu.be/dLvSGPsV344
-                     Interface HCSR04 Ultrasonic sensor With NodeMCU ESP8266  => https://youtu.be/li1mtgCEDwQ */
+   Video Tutorial:- https://youtu.be/NjUuioiC99M
+   
+   */
 
 
 #include <ESP8266WiFi.h>
