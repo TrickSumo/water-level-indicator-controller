@@ -1,0 +1,265 @@
+/* 
+ Created by:- Rishi Tiwari
+ Website:- TrickSumo.com
+ Video Tutorial:- https://youtu.be/nLzC0-VaqDs
+ 
+ Libraries used:- 
+
+https://github.com/mobizt/Firebase-ESP8266/
+
+*/
+
+
+#include <FirebaseESP8266.h>
+#include <ESP8266WiFi.h>
+
+#define FIREBASE_HOST "xxxxxxxxxx"           // Enter database HOST without "https:// "  and "/" at the end of URL             
+#define FIREBASE_AUTH "xxxxxxxxxx"   // Real-time database secret key here
+
+#define WIFI_SSID "xxxxxxx"            // WIFI SSID here                                   
+#define WIFI_PASSWORD "xxxxxxx"        // WIFI password here                  
+
+// Declare the Firebase Data object in the global scope
+FirebaseData firebaseData1;
+FirebaseData firebaseData2;
+FirebaseData firebaseData3;
+
+float level = 0, motor = 0;
+
+String val, man, tmp, zero = "0" , one = "1";
+
+
+// define pin numbers for ultrasonic sensor
+
+const int trigPin = D7;
+const int echoPin = D8;
+const int motorPin = D5;
+
+// defines variables for ultrasonic sensor
+long duration;
+int distance;
+
+int lvlmax = 2; // maximum desired water level i.e.(tank height in cm - 2 cm) {ex. 10 - 2 = 8 cm}
+int lvlmin = 8; // minimum desired water level i.e.(tank height in cm - 8 cm) {ex. 10 - 8 = 2 cm}
+
+int lvlone = 6; // margin of level 1
+int lvltwo = 5; // margin of level 2
+int lvlthree = 3; // margin of level 3
+
+
+
+
+
+void setup() {
+
+
+
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT);// Sets the echoPin as an Input
+  pinMode(motorPin, OUTPUT);//  Sets the motorPin as an Output
+
+
+
+  Serial.begin(115200);                                   // Select the same baud rate if you want to see the datas on Serial Monitor
+
+  Serial.println("Serial communication started\n\n");
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);                                     //try to connect with wifi
+  Serial.print("Connecting to ");
+  Serial.print(WIFI_SSID);
+
+
+
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+
+
+  Serial.println();
+  Serial.print("Connected to ");
+  Serial.println(WIFI_SSID);
+  Serial.print("IP Address is : ");
+  Serial.println(WiFi.localIP());                                            //print local IP address
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);   // connect to firebase
+
+  Firebase.reconnectWiFi(true);
+  delay(1000);
+
+}
+
+
+
+
+void loop() {
+
+
+  // ULTRASONIC *****************************************
+
+  // Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  // Sets the trigPin on HIGH state for 10
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(100);
+  digitalWrite(trigPin, LOW);
+
+  Serial.println("Trigger for 10 \n\n");
+
+
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+
+  Serial.println("duration calculated \n\n");
+
+  Serial.println("assembling sonar\n\n");
+
+
+  // Calculating the distance
+  distance = duration * 0.034 / 2;
+
+  // Prints the distance on the Serial Monitor
+  Serial.print("Distance: ");
+  Serial.println(distance); delay(100);
+
+
+  if (distance >= lvlmin) {
+    level = 0; motor = 1; Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level);  Serial.println("Water below desired level. Motor turned ON.\n\n\n");
+
+    motor = 1; digitalWrite(D5, HIGH);  Firebase.setFloat(firebaseData2, "/S_HO_C_K/motorstatus", motor);
+  } delay(500);
+
+  if (distance >= lvlone && distance < lvlmin) {
+    if (motor == 0) {
+      level = 11; // checking ON - OFF at mid levels
+    }  if (motor == 1) {
+      level = 31;
+    }
+    Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); Serial.println("Water level 1.\n\n\n");
+  }
+  delay(5);
+
+  if (distance == lvltwo) {
+    if (motor == 0) {
+      level = 12;
+    }  if (motor == 1) {
+      level = 32;
+    }
+    Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); Serial.println("Water level 2.\n\n\n");
+  }
+  delay(5);
+
+  if (distance >= lvlthree && distance < lvltwo) {
+    if (motor == 0) {
+      level = 13;
+    }  if (motor == 1) {
+      level = 33;
+    }
+    Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); Serial.println("Water level 3.\n\n\n");
+  }
+  delay(5);
+
+  if (distance <= lvlmax) {
+    level = 4; Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level);
+    motor = 0; digitalWrite(D5, LOW);  Firebase.setFloat(firebaseData2, "/S_HO_C_K/motorstatus", motor); Serial.println("Water above desired level. Motor turned OFF.\n\n\n");
+  } delay(5);
+
+  Firebase.getString(firebaseData3, "/S_HO_C_K/man");
+  val = firebaseData3.stringData(); Serial.print('\n');
+  man = val;
+
+  // Manual option *******************************************
+
+
+  if (man == one) {
+
+    while (1) {
+
+
+      Serial.println("Welcome to Manual Mode. Motor turned ON.\n\n\n");  delay(500);
+
+      digitalWrite(D5, HIGH); level = 2; motor = 1; Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); // turned on motor
+
+      if (man == zero) {
+        digitalWrite(D5, LOW);
+        motor = 0;
+        Firebase.setString(firebaseData3, "/S_HO_C_K/man", man);
+        delay(100);
+        Serial.println("Exit Manual Mode. Motor turned OFF.\n\n\n");
+        return;
+      }
+
+      // Calculating distance in manual mode
+
+
+      // Clears the trigPin
+      digitalWrite(trigPin, LOW);
+      delayMicroseconds(2);
+
+      // Sets the trigPin on HIGH state for 10
+      digitalWrite(trigPin, HIGH);
+      delayMicroseconds(100);
+      digitalWrite(trigPin, LOW);
+
+      Serial.println("Trigger for 10 \n\n");
+
+
+      // Reads the echoPin, returns the sound wave travel time in microseconds
+      duration = pulseIn(echoPin, HIGH);
+
+      Serial.println("Manual mode. duration calculated \n\n");
+
+      Serial.println("Manual mode. assembling sonar\n\n");
+
+
+      // Calculating the distance
+      distance = duration * 0.034 / 2;
+
+
+      if (distance >= lvlone && distance < lvlmin) {
+        if (motor == 0) {
+          level = 11; // checking ON - OFF at mid levels
+        }  if (motor == 1) {
+          level = 31;
+        }
+        Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); Serial.println("Manual Mode. Water level 1.\n\n\n");
+      }
+      delay(5);
+
+      if (distance == lvltwo) {
+        if (motor == 0) {
+          level = 12;
+        }  if (motor == 1) {
+          level = 32;
+        }
+        Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); Serial.println("Manual Mode. Water level 2.\n\n\n");
+      }
+      delay(5);
+
+      if (distance >= lvlthree && distance < lvltwo) {
+        if (motor == 0) {
+          level = 13;
+        }  if (motor == 1) {
+          level = 33;
+        }
+        Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); Serial.println("Manual Mode. Water level 3.\n\n\n");
+      }
+      delay(5);
+
+
+      if (distance <= lvlmax) {
+        level = 4; Firebase.setFloat(firebaseData1, "/S_HO_C_K/level", level); man = "0"; Firebase.setString(firebaseData3, "/S_HO_C_K/man", man);
+        motor = 0; digitalWrite(D5, LOW);  Firebase.setFloat(firebaseData2, "/S_HO_C_K/motorstatus", motor); Serial.println("Manual Mode. Water above desired level. Motor turned OFF.\n\n\n");
+      }
+
+
+      Firebase.getString(firebaseData3, "/S_HO_C_K/man");
+      tmp = firebaseData3.stringData(); Serial.print('\n');
+      man = tmp;
+
+    }
+  }
+
+
+}
